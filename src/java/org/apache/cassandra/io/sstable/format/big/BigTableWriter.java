@@ -21,10 +21,14 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.apache.cassandra.config.ColumnDefinition;
+import org.apache.cassandra.db.filter.ColumnFilter;
 import org.apache.cassandra.db.lifecycle.LifecycleNewTracker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,6 +52,8 @@ import org.apache.cassandra.io.sstable.metadata.MetadataType;
 import org.apache.cassandra.io.sstable.metadata.StatsMetadata;
 import org.apache.cassandra.io.util.*;
 import org.apache.cassandra.utils.*;
+import org.apache.cassandra.utils.btree.BTree;
+import org.apache.cassandra.utils.btree.UpdateFunction;
 import org.apache.cassandra.utils.concurrent.Transactional;
 
 public class BigTableWriter extends SSTableWriter
@@ -168,7 +174,10 @@ public class BigTableWriter extends SSTableWriter
         //Reuse the writer for each row
         columnIndexWriter.reset();
 
-        try (UnfilteredRowIterator collecting = Transformation.apply(iterator, new StatsCollector(metadataCollector)))
+        try (
+            UnfilteredRowIterator untransformed = Transformation.apply(iterator, new StatsCollector(metadataCollector));
+            UnfilteredRowIterator collecting = Transformation.apply(untransformed, new CleanSequenceProtobuf());
+        )
         {
             columnIndexWriter.buildRowIndex(collecting);
 
@@ -209,6 +218,32 @@ public class BigTableWriter extends SSTableWriter
         {
             String keyString = metadata.getKeyValidator().getString(key.getKey());
             logger.warn("Writing large partition {}/{}:{} ({}) to sstable {}", metadata.ksName, metadata.cfName, keyString, FBUtilities.prettyPrintMemory(rowSize), getFilename());
+        }
+    }
+
+    private static class CleanSequenceProtobuf extends Transformation<UnfilteredRowIterator>
+    {
+        @Override
+        public Row applyToRow(Row row)
+        {
+            int removing = 0;
+            int remaining = 0;
+            for (Cell cell : row.cells()) {
+                if (!cell.isTombstone() ||
+                    !cell.column().name.toString().equals("sequence_protobuf") ||
+                    cell.localDeletionTime() == Cell.NO_DELETION_TIME) {
+                    remaining++;
+                } else {
+                    removing++;
+                }
+            }
+
+            if (removing > 0) {
+                logger.warn("Removing tombstones: {} ({} cells left)", removing, remaining);
+                return row.purge(DeletionPurger.PURGE_ALL, 0, false);
+            }
+
+            return row;
         }
     }
 
