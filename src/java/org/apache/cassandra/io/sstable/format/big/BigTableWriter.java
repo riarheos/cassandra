@@ -21,14 +21,10 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import org.apache.cassandra.config.ColumnDefinition;
-import org.apache.cassandra.db.filter.ColumnFilter;
 import org.apache.cassandra.db.lifecycle.LifecycleNewTracker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,8 +48,6 @@ import org.apache.cassandra.io.sstable.metadata.MetadataType;
 import org.apache.cassandra.io.sstable.metadata.StatsMetadata;
 import org.apache.cassandra.io.util.*;
 import org.apache.cassandra.utils.*;
-import org.apache.cassandra.utils.btree.BTree;
-import org.apache.cassandra.utils.btree.UpdateFunction;
 import org.apache.cassandra.utils.concurrent.Transactional;
 
 public class BigTableWriter extends SSTableWriter
@@ -239,7 +233,7 @@ public class BigTableWriter extends SSTableWriter
             }
 
             if (removing > 0) {
-                logger.warn("Removing tombstones: {} ({} cells left)", removing, remaining);
+//                logger.warn("Removing tombstones: {} ({} cells left)", removing, remaining);
                 return row.purge(DeletionPurger.PURGE_ALL, 0, false);
             }
 
