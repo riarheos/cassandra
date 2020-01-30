@@ -220,6 +220,14 @@ public class BigTableWriter extends SSTableWriter
         @Override
         public Row applyToRow(Row row)
         {
+            boolean triggered = false;
+            for (Cell cell : row.cells()) {
+                if (cell.isTombstone()) {
+                    triggered = true;
+                    break;
+                }
+            }
+            /*
             int removing = 0;
             int remaining = 0;
             for (Cell cell : row.cells()) {
@@ -231,8 +239,9 @@ public class BigTableWriter extends SSTableWriter
                     removing++;
                 }
             }
+             */
 
-            if (removing > 0) {
+            if (triggered) {
 //                logger.warn("Removing tombstones: {} ({} cells left)", removing, remaining);
                 return row.purge(DeletionPurger.PURGE_ALL, 0, false);
             }

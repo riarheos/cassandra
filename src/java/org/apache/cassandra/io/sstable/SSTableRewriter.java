@@ -165,6 +165,8 @@ public class SSTableRewriter extends Transactional.AbstractTransactional impleme
 
     private void maybeReopenEarly(DecoratedKey key)
     {
+        return;
+        /*
         if (writer.getFilePointer() - currentlyOpenedEarlyAt > preemptiveOpenInterval)
         {
             if (transaction.isOffline())
@@ -187,6 +189,7 @@ public class SSTableRewriter extends Transactional.AbstractTransactional impleme
                 }
             }
         }
+         */
     }
 
     protected Throwable doAbort(Throwable accumulate)
